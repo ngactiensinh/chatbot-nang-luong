@@ -1,9 +1,0 @@
-streamlit
-google-generativeai
-langchain
-langchain-google-genai
-langchain-community
-langchain-core
-faiss-cpu
-pypdf
-docx2txt
