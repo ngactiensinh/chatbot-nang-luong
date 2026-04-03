@@ -66,7 +66,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Chia cột để đặt Logo bên trái, Chữ bên phải
-col1, col2 = st.columns([1, 5])
+col1, col2 = st.columns([1, 8])
 with col1:
     try:
         st.image("Logo TGDV.png", width=100)
