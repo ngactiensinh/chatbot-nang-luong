@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import sys
 import io
+from PIL import Image
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -17,7 +18,12 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 
 # --- 2. THIẾT KẾ GIAO DIỆN (UI/UX) ---
-st.set_page_config(page_title="Trợ lý AI - Ban TG&DV Tuyên Quang", page_icon="🌟", layout="centered")
+# Tải logo lên Tab trình duyệt
+try:
+    page_icon_image = Image.open("Logo TGDV.png")
+    st.set_page_config(page_title="Trợ lý AI - Ban TG&DV Tuyên Quang", page_icon=page_icon_image, layout="centered")
+except Exception as e:
+    st.set_page_config(page_title="Trợ lý AI - Ban TG&DV Tuyên Quang", page_icon="🌟", layout="centered")
 
 st.markdown("""
 <style>
@@ -26,20 +32,21 @@ st.markdown("""
     header {visibility: hidden;}
     
     .main-title {
-        font-size: 28px; /* Đã giảm cỡ chữ từ 34px xuống 28px để vừa 1 dòng */
+        font-size: 28px;
         font-weight: 900;
         color: #C8102E; 
-        text-align: center;
+        text-align: left; /* Đổi thành căn trái để đi kèm logo */
         margin-bottom: 5px;
+        margin-top: 15px;
         text-transform: uppercase;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
     .sub-title {
-        font-size: 16px; /* Giảm cỡ chữ phụ cho cân đối với tiêu đề chính */
+        font-size: 16px;
         font-weight: 600;
         color: #004B87; 
-        text-align: center;
+        text-align: left; /* Đổi thành căn trái */
         margin-bottom: 20px;
         text-transform: uppercase;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -52,14 +59,24 @@ st.markdown("""
 
     /* Thêm tính năng Responsive: Tự động thu nhỏ chữ nếu xem trên màn hình nhỏ/điện thoại */
     @media (max-width: 768px) {
-        .main-title { font-size: 22px; }
+        .main-title { font-size: 22px; margin-top: 5px; }
         .sub-title { font-size: 14px; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-title">🌟 TRỢ LÝ AI - GIẢI ĐÁP CHẾ ĐỘ NÂNG LƯƠNG</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">BAN TUYÊN GIÁO VÀ DÂN VẬN TỈNH ỦY TUYÊN QUANG</div>', unsafe_allow_html=True)
+# Chia cột để đặt Logo bên trái, Chữ bên phải
+col1, col2 = st.columns([1, 5])
+with col1:
+    try:
+        st.image("Logo TGDV.png", width=100)
+    except Exception as e:
+        st.error("Chưa tìm thấy Logo")
+        
+with col2:
+    st.markdown('<div class="main-title">TRỢ LÝ AI - GIẢI ĐÁP CHẾ ĐỘ NÂNG LƯƠNG</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">BAN TUYÊN GIÁO VÀ DÂN VẬN TỈNH ỦY TUYÊN QUANG</div>', unsafe_allow_html=True)
+
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
 # --- 3. HÀM ĐỌC VÀ TIÊU HÓA TÀI LIỆU ---
@@ -106,11 +123,11 @@ with st.spinner("Đang đồng bộ cơ sở dữ liệu quy định..."):
     try:
         vectorstore = nap_tai_lieu()
     except Exception as e:
-        st.error(f"❌ Có lỗi khi đọc file tài liệu: {e}. Vui lòng kiểm tra lại định dạng file (chỉ dùng .docx hoặc .pdf).")
+        st.error(f"❌ Có lỗi khi đọc file tài liệu: {e}. Vui lòng kiểm tra lại định dạng file.")
         vectorstore = None
 
 if vectorstore is None:
-    st.info("💡 Hệ thống đã sẵn sàng. Vui lòng đưa các văn bản quy định (chỉ nhận file PDF hoặc DOCX) vào thư mục 'Tai_lieu'.")
+    st.info("💡 Hệ thống đã sẵn sàng. Vui lòng đưa các văn bản quy định (file PDF, DOCX hoặc CSV) vào thư mục 'Tai_lieu'.")
 else:
     # --- 4. LUỒNG SUY NGHĨ CỦA AI ---
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
