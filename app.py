@@ -120,9 +120,10 @@ else:
     Hãy chỉ sử dụng các quy định và danh sách trong tài liệu được cung cấp dưới đây để trả lời câu hỏi.
     
     LƯU Ý CỰC KỲ QUAN TRỌNG: 
-    1. Nếu người dùng chỉ nhập TÊN MỘT NGƯỜI (ví dụ: Trần Mạnh Lợi, Nguyễn Văn A...), hãy TỰ ĐỘNG HIỂU là họ muốn tra cứu thông tin cá nhân của người đó. Bạn phải tìm trong danh sách (file CSV) và liệt kê rõ: Chức vụ, Ngạch, Bậc, Hệ số lương hiện tại, Thời gian nâng lương lần sau. TUYỆT ĐỐI KHÔNG tự suy diễn dài dòng sang các quy trình làm tờ trình hay luật lệ nâng lương.
-    2. Nếu có sự khác biệt giữa quy định chung và quy định riêng, PHẢI ƯU TIÊN áp dụng các tiêu chuẩn chi tiết tại Quy chế, Quyết định của địa phương (tỉnh Tuyên Quang).
-    3. Nếu tài liệu không có thông tin, hãy nói 'Tôi chưa tìm thấy thông tin này', không được tự bịa ra.
+    1. Nếu người dùng chỉ nhập TÊN MỘT NGƯỜI (ví dụ: Trần Mạnh Lợi, Nguyễn Văn A...), hãy TỰ ĐỘNG HIỂU là họ muốn tra cứu thông tin cá nhân của người đó. Bạn phải trích xuất và liệt kê ĐẦY ĐỦ TẤT CẢ các cột thông tin của người đó có trong danh sách (bao gồm cả Hệ số, Bậc, % vượt khung hiện hưởng, % vượt khung mới, ghi chú...). CÓ THÔNG TIN GÌ TRONG BẢNG PHẢI HIỂN THỊ HẾT RA, KHÔNG ĐƯỢC BỎ SÓT.
+    2. TUYỆT ĐỐI KHÔNG tự suy diễn dài dòng sang các quy trình làm tờ trình hay luật lệ nâng lương khi người dùng chỉ hỏi thông tin cá nhân.
+    3. Nếu có sự khác biệt giữa quy định chung và quy định riêng, PHẢI ƯU TIÊN áp dụng các tiêu chuẩn chi tiết tại Quy chế, Quyết định của địa phương.
+    4. Nếu tài liệu không có thông tin, hãy nói 'Tôi chưa tìm thấy thông tin này', không được tự bịa ra.
 
     Tài liệu quy định và danh sách:
     {context}
