@@ -74,32 +74,23 @@ def nap_tai_lieu():
 
     for file in os.listdir(folder_path):
         file_path = os.path.join(folder_path, file)
-        # Chỉ lấy file .pdf và .docx (bỏ qua .doc để tránh lỗi hệ thống)
+        
+        # Chỉ lấy file .pdf, .docx và .csv
         if file.endswith('.pdf'):
             loader = PyPDFLoader(file_path)
             docs.extend(loader.load())
+            
         elif file.endswith('.docx'):
             loader = Docx2txtLoader(file_path)
-            # Đọc và lọc sạch ký tự lạ
-            loaded_docs = loader.load()
-            for doc in loaded_docs:
-                doc.page_content = doc.page_content.encode('utf-8', 'ignore').decode('utf-8')
-            docs.extend(loaded_docs)
-	elif file.endswith('.docx'):
-            loader = Docx2txtLoader(file_path)
-            # Đọc và lọc sạch ký tự lạ
             loaded_docs = loader.load()
             for doc in loaded_docs:
                 doc.page_content = doc.page_content.encode('utf-8', 'ignore').decode('utf-8')
             docs.extend(loaded_docs)
             
-        # DÁN 3 DÒNG MỚI VÀO ĐÂY, THẲNG HÀNG VỚI ELIF Ở TRÊN
         elif file.endswith('.csv'):
             loader = CSVLoader(file_path=file_path, encoding='utf-8')
             docs.extend(loader.load())
 
-    if not docs:
-        return None
     if not docs:
         return None
 
