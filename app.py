@@ -3,7 +3,7 @@ import os
 import sys
 import io
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, CSVLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
@@ -85,7 +85,21 @@ def nap_tai_lieu():
             for doc in loaded_docs:
                 doc.page_content = doc.page_content.encode('utf-8', 'ignore').decode('utf-8')
             docs.extend(loaded_docs)
+	elif file.endswith('.docx'):
+            loader = Docx2txtLoader(file_path)
+            # Đọc và lọc sạch ký tự lạ
+            loaded_docs = loader.load()
+            for doc in loaded_docs:
+                doc.page_content = doc.page_content.encode('utf-8', 'ignore').decode('utf-8')
+            docs.extend(loaded_docs)
+            
+        # DÁN 3 DÒNG MỚI VÀO ĐÂY, THẲNG HÀNG VỚI ELIF Ở TRÊN
+        elif file.endswith('.csv'):
+            loader = CSVLoader(file_path=file_path, encoding='utf-8')
+            docs.extend(loader.load())
 
+    if not docs:
+        return None
     if not docs:
         return None
 
