@@ -116,16 +116,20 @@ else:
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 15}) 
 
-    template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang. Hãy chỉ sử dụng các quy định trong tài liệu được cung cấp dưới đây để trả lời câu hỏi.
+    template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang. 
+    Hãy chỉ sử dụng các quy định và danh sách trong tài liệu được cung cấp dưới đây để trả lời câu hỏi.
     
-    LƯU Ý ĐẶC BIỆT: Nếu có sự khác biệt giữa quy định chung và quy định riêng, PHẢI ƯU TIÊN áp dụng các tiêu chuẩn chi tiết tại Quy chế, Quyết định của địa phương (tỉnh Tuyên Quang) cao hơn các Thông tư chung của Bộ/Ngành.
-    Nếu tài liệu không có thông tin, hãy nói rõ 'Tôi chưa tìm thấy quy định cụ thể về vấn đề này trong cơ sở dữ liệu hiện tại', tuyệt đối không tự suy diễn kiến thức bên ngoài.
+    LƯU Ý CỰC KỲ QUAN TRỌNG: 
+    1. Nếu người dùng chỉ nhập TÊN MỘT NGƯỜI (ví dụ: Trần Mạnh Lợi, Nguyễn Văn A...), hãy TỰ ĐỘNG HIỂU là họ muốn tra cứu thông tin cá nhân của người đó. Bạn phải tìm trong danh sách (file CSV) và liệt kê rõ: Chức vụ, Ngạch, Bậc, Hệ số lương hiện tại, Thời gian nâng lương lần sau. TUYỆT ĐỐI KHÔNG tự suy diễn dài dòng sang các quy trình làm tờ trình hay luật lệ nâng lương.
+    2. Nếu có sự khác biệt giữa quy định chung và quy định riêng, PHẢI ƯU TIÊN áp dụng các tiêu chuẩn chi tiết tại Quy chế, Quyết định của địa phương (tỉnh Tuyên Quang).
+    3. Nếu tài liệu không có thông tin, hãy nói 'Tôi chưa tìm thấy thông tin này', không được tự bịa ra.
 
-    Tài liệu quy định:
+    Tài liệu quy định và danh sách:
     {context}
 
     Câu hỏi của đồng chí: {question}
     """
+    
     prompt = ChatPromptTemplate.from_template(template)
 
     def format_docs(docs):
