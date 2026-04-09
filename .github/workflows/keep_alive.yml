@@ -1,11 +1,11 @@
 name: Keep Streamlit Alive
 on:
   schedule:
-    - cron: '0 0 */1 * *' # Chạy mỗi 1 ngày một lần cho chắc ăn
+    - cron: '0 * * * *' # Chạy đúng vào phút thứ 0 của mỗi giờ
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Streamlit app
-        # 👇 BẠN THAY ĐƯỜNG LINK BÊN DƯỚI THÀNH LINK APP STREAMLIT CỦA BẠN NHÉ 👇
-        run: curl -I https://tracuuluong-tgdvtq.streamlit.app
+        # THAY LINK APP THỰC TẾ CỦA SẾP VÀO ĐÂY
+        run: curl -I https://tracuuluong-tgdvtq.streamlit.app/
