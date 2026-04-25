@@ -7,3 +7,4 @@ langchain-core
 faiss-cpu
 pypdf
 docx2txt
+supabase
