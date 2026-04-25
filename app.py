@@ -10,6 +10,8 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+# THÊM DÒNG NÀY ĐỂ GỌI SUPABASE VÀO TRANG:
+from supabase import create_client, Client 
 
 # Ép hệ thống sử dụng chuẩn UTF-8 để không bị lỗi dấu tiếng Việt
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -17,8 +19,34 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 # --- 1. CẤU HÌNH API KEY (LẤY TỪ KÉT SẮT BẢO MẬT) ---
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
 
+# ==========================================
+# THÊM MỚI: CẤU HÌNH SUPABASE & HÀM ĐẾM LƯỢT TRUY CẬP
+# ==========================================
+SUPABASE_URL = "https://qqzsdxhqrdfvxnlurnyb.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxenNkeGhxcmRmdnhubHVybnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MjY0NjAsImV4cCI6MjA5MTIwMjQ2MH0.H62F5zYEZ5l47fS4IdAE2JdRdI7inXQqWG0nvXhn2P8"
+
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except:
+    pass
+
+def log_access(app_name):
+    # Tạo key để mỗi người vào phiên làm việc chỉ bị đếm 1 lần (chống spam)
+    key_name = f"da_dem_truy_cap_{app_name}"
+    if key_name not in st.session_state:
+        try:
+            supabase.table("thong_ke_truy_cap").insert({"ten_app": app_name}).execute()
+            st.session_state[key_name] = True
+        except:
+            pass # Nếu lỗi mạng thì bỏ qua, không làm sập Chatbot
+
+# KÍCH HOẠT BỘ ĐẾM CHO TRANG CHATBOT NÀY
+log_access("AI Tra cứu Lương")
+
+
 # --- 2. THIẾT KẾ GIAO DIỆN (UI/UX) ---
 # Tải logo lên Tab trình duyệt
+# (Từ đây trở xuống sếp giữ nguyên y hệt file cũ nhé) ...
 try:
     page_icon_image = Image.open("Logo TGDV.png")
     st.set_page_config(page_title="Trợ lý AI - Ban TG&DV Tuyên Quang", page_icon=page_icon_image, layout="centered")
