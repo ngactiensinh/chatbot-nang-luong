@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import sys
 import io
+import re
+import unicodedata
 import pandas as pd
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -140,15 +142,29 @@ def nap_du_lieu_luong_tu_supabase():
         return pd.DataFrame()
 
 
+def bo_dau(s):
+    """Bỏ dấu tiếng Việt + chuyển thường, để 'Tuấn', 'TUẤN', 'tuan' đều so khớp được với nhau."""
+    if not isinstance(s, str):
+        return ""
+    s = unicodedata.normalize('NFD', s)
+    s = re.sub(r'[\u0300-\u036f]', '', s)
+    s = s.replace('đ', 'd').replace('Đ', 'D')
+    return s.lower().strip()
+
+
 def tim_ho_so_theo_ten(df, ten_nhap):
-    """Tìm hồ sơ theo tên: ưu tiên khớp chính xác, sau đó khớp chứa (không phân biệt hoa/thường)."""
+    """Tìm hồ sơ theo tên: ưu tiên khớp chính xác, sau đó khớp chứa - không phân biệt hoa/thường và có/không dấu."""
     if df.empty:
         return pd.DataFrame()
-    ten_norm = ten_nhap.strip().lower()
-    match = df[df['ho_ten'].astype(str).str.strip().str.lower() == ten_norm]
+    ten_norm = bo_dau(ten_nhap)
+    if not ten_norm:
+        return pd.DataFrame()
+    df = df.copy()
+    df['_ten_bo_dau'] = df['ho_ten'].astype(str).apply(bo_dau)
+    match = df[df['_ten_bo_dau'] == ten_norm]
     if match.empty:
-        match = df[df['ho_ten'].astype(str).str.lower().str.contains(ten_norm, na=False)]
-    return match
+        match = df[df['_ten_bo_dau'].str.contains(ten_norm, na=False, regex=False)]
+    return match.drop(columns=['_ten_bo_dau'], errors='ignore')
 
 
 def dinh_dang_ho_so(row):
@@ -342,8 +358,16 @@ else:
                     if len(ho_so) == 1:
                         answer = dinh_dang_ho_so(ho_so.iloc[0])
                     else:
-                        answer = f"Tìm thấy {len(ho_so)} kết quả khớp với '{user_query}':\n\n" + \
-                                  "\n\n---\n\n".join(dinh_dang_ho_so(r) for _, r in ho_so.iterrows())
+                        # Nhiều người trùng/gần giống tên -> gợi ý để người dùng chọn đúng, không dump hết
+                        goi_y = "\n".join(
+                            f"- **{r.get('ho_ten','')}** ({r.get('chuc_vu','') or 'chưa rõ chức vụ'})"
+                            for _, r in ho_so.iterrows()
+                        )
+                        answer = (
+                            f"Tìm thấy {len(ho_so)} người có tên gần giống '{user_query}'. "
+                            f"Bạn có phải muốn tìm:\n\n{goi_y}\n\n"
+                            f"👉 Vui lòng nhập chính xác họ và tên đầy đủ để xem thông tin chi tiết."
+                        )
                 elif rag_chain is not None:
                     # BƯỚC 2: Câu hỏi về quy định/quy trình -> dùng RAG như cũ
                     answer = rag_chain.invoke(user_query)
