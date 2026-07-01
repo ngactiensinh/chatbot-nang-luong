@@ -191,6 +191,94 @@ def dinh_dang_ho_so(row):
 *(Dữ liệu lấy trực tiếp, tự động cập nhật từ hệ thống Theo dõi nâng lương)*"""
 
 
+# ==========================================
+# MỚI: TÍCH HỢP DỮ LIỆU TỪ APP "QUẢN LÝ HỒ SƠ CBCC"
+# Chỉ lấy Khen thưởng/Kỷ luật + Diễn biến lương (KHÔNG lấy thông tin cá nhân/gia đình)
+# để phục vụ đánh giá điều kiện nâng lương trước thời hạn
+# ==========================================
+@st.cache_data(ttl=60, show_spinner=False)
+def nap_danh_sach_ma_cbcc():
+    """Chỉ lấy id + ho_ten từ ho_so_cbcc - dùng để map tên -> mã, không lấy thông tin cá nhân khác."""
+    try:
+        res = supabase.table("ho_so_cbcc").select("id,ho_ten").execute()
+        return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+def tim_ma_cbcc_theo_ten(ten_day_du):
+    """Map họ tên -> mã CBCC. Chỉ trả về khi khớp RÕ RÀNG (1 kết quả), tránh lấy nhầm hồ sơ người khác."""
+    df = nap_danh_sach_ma_cbcc()
+    if df.empty or not ten_day_du:
+        return None
+    ten_norm = bo_dau(ten_day_du)
+    df = df.copy()
+    df['_bd'] = df['ho_ten'].astype(str).apply(bo_dau)
+    m = df[df['_bd'] == ten_norm]
+    if len(m) == 1:
+        return m.iloc[0]['id']
+    return None
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def nap_khen_thuong_ky_luat(ma_cbcc):
+    try:
+        res = supabase.table("khen_thuong_ky_luat").select(
+            "ngay_quyet_dinh,loai,noi_dung,quyet_dinh_so"
+        ).eq("ma_cbcc", ma_cbcc).order("id").execute()
+        return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def nap_dien_bien_luong_chi_tiet(ma_cbcc):
+    try:
+        res = supabase.table("dien_bien_luong").select(
+            "ngay_quyet_dinh,bac_luong,he_so,quyet_dinh_so"
+        ).eq("ma_cbcc", ma_cbcc).order("id").execute()
+        return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+TU_KHOA_TRUOC_HAN = [
+    "truoc thoi han", "truoc han", "nang luong som", "xet som",
+    "tang luong truoc", "co du dieu kien", "du dieu kien khong",
+]
+
+def la_cau_hoi_dieu_kien_truoc_han(query):
+    """Nhận diện câu hỏi kiểu 'có được xét nâng lương trước thời hạn không'."""
+    q = bo_dau(query)
+    return any(tk in q for tk in TU_KHOA_TRUOC_HAN)
+
+
+TEMPLATE_DIEU_KIEN_TRUOC_HAN = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
+Nhiệm vụ: đánh giá cán bộ có đủ điều kiện được xét nâng bậc lương trước thời hạn hay không, CHỈ dựa vào dữ liệu và quy định dưới đây. Không suy diễn hay bịa thêm điều kiện không có trong quy định.
+
+1. THÔNG TIN LƯƠNG HIỆN TẠI CỦA CÁN BỘ:
+{ho_so_luong}
+
+2. LỊCH SỬ KHEN THƯỞNG / KỶ LUẬT:
+{khen_thuong}
+
+3. DIỄN BIẾN LƯƠNG CHI TIẾT (LỊCH SỬ CÁC LẦN NÂNG LƯƠNG):
+{dien_bien_luong}
+
+4. QUY ĐỊNH LIÊN QUAN ĐẾN NÂNG LƯƠNG TRƯỚC THỜI HẠN:
+{quy_dinh}
+
+YÊU CẦU TRẢ LỜI:
+- Kết luận rõ ràng: CÓ, KHÔNG, hay "Chưa đủ căn cứ để kết luận" (nếu thiếu dữ liệu/quy định).
+- Nêu căn cứ cụ thể dựa trên thành tích khen thưởng, thời gian giữ bậc lương hiện tại và quy định.
+- Nếu có kỷ luật trong thời gian xét, nêu rõ ảnh hưởng đến điều kiện xét (nếu quy định có đề cập).
+- Nếu đủ điều kiện, hướng dẫn ngắn gọn các bước/hồ sơ cần chuẩn bị theo đúng quy định đã cung cấp.
+- Nếu tài liệu quy định không đủ thông tin để kết luận, nói rõ cần bổ sung văn bản/dữ liệu nào.
+
+Câu hỏi của cán bộ: {question}
+"""
+
+
 # --- 2. THIẾT KẾ GIAO DIỆN (UI/UX) ---
 try:
     page_icon_image = Image.open("Logo TGDV.png")
@@ -301,8 +389,9 @@ df_luong = nap_du_lieu_luong_tu_supabase()
 if vectorstore is None and df_luong.empty:
     st.info("💡 Hệ thống đã sẵn sàng. Vui lòng đưa văn bản quy định vào thư mục 'Tai_lieu' và/hoặc kiểm tra dữ liệu bảng theo_doi_luong trên Supabase.")
 else:
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+
     if vectorstore is not None:
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
 
         template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
@@ -331,6 +420,7 @@ else:
             | StrOutputParser()
         )
     else:
+        retriever = None
         rag_chain = None
 
     # --- 5. KHUNG CHAT TƯƠNG TÁC ---
@@ -340,15 +430,75 @@ else:
         st.session_state.goi_y_ten = []   # danh sách tên đang gợi ý để bấm nhanh
     if "cau_hoi_cho_xu_ly" not in st.session_state:
         st.session_state.cau_hoi_cho_xu_ly = None
+    if "nguoi_hien_tai" not in st.session_state:
+        st.session_state.nguoi_hien_tai = None
 
     def xu_ly_cau_hoi(user_query):
-        """Xử lý 1 câu hỏi: tra tên trực tiếp từ Supabase, nếu không thì hỏi RAG."""
-        # BƯỚC 1: Thử tra cứu trực tiếp theo tên trong dữ liệu Supabase (chính xác, luôn mới nhất)
+        """Xử lý 1 câu hỏi:
+        0) Nếu hỏi về điều kiện nâng lương trước thời hạn -> tổng hợp dữ liệu lương + khen thưởng/kỷ luật + quy định, để LLM đánh giá.
+        1) Nếu là tên người -> tra cứu trực tiếp từ Supabase.
+        2) Còn lại -> hỏi RAG (quy định chung)."""
         ho_so = tim_ho_so_theo_ten(df_luong, user_query)
         goi_y_moi = []
 
+        # NHÁNH 0: câu hỏi về điều kiện nâng lương trước thời hạn
+        if la_cau_hoi_dieu_kien_truoc_han(user_query):
+            doi_tuong = None
+            if not ho_so.empty and len(ho_so) == 1:
+                doi_tuong = ho_so.iloc[0]
+            elif st.session_state.get("nguoi_hien_tai"):
+                ho_so_truoc = tim_ho_so_theo_ten(df_luong, st.session_state["nguoi_hien_tai"])
+                if len(ho_so_truoc) == 1:
+                    doi_tuong = ho_so_truoc.iloc[0]
+
+            if doi_tuong is None:
+                answer = (
+                    "Để đánh giá điều kiện nâng lương trước thời hạn, vui lòng cho tôi biết "
+                    "họ và tên đầy đủ của đồng chí cần tra cứu trước nhé."
+                )
+                return answer, []
+
+            ten_day_du = doi_tuong.get('ho_ten', '')
+            ma_cbcc = tim_ma_cbcc_theo_ten(ten_day_du)
+            kt_kl = nap_khen_thuong_ky_luat(ma_cbcc) if ma_cbcc else pd.DataFrame()
+            dbl = nap_dien_bien_luong_chi_tiet(ma_cbcc) if ma_cbcc else pd.DataFrame()
+
+            khen_thuong_text = "\n".join(
+                f"- {r.get('ngay_quyet_dinh','')}: {r.get('loai','')} - {r.get('noi_dung','')} (QĐ số {r.get('quyet_dinh_so','')})"
+                for _, r in kt_kl.iterrows()
+            ) or "Không có dữ liệu khen thưởng/kỷ luật trong hệ thống Hồ sơ CBCC."
+
+            dien_bien_text = "\n".join(
+                f"- {r.get('ngay_quyet_dinh','')}: Bậc {r.get('bac_luong','')}, hệ số {r.get('he_so','')} (QĐ số {r.get('quyet_dinh_so','')})"
+                for _, r in dbl.iterrows()
+            ) or "Không có dữ liệu diễn biến lương chi tiết trong hệ thống Hồ sơ CBCC."
+
+            quy_dinh_text = ""
+            if retriever is not None:
+                try:
+                    docs_lq = retriever.invoke(user_query)
+                    quy_dinh_text = "\n\n".join(d.page_content for d in docs_lq)
+                except Exception:
+                    quy_dinh_text = ""
+            if not quy_dinh_text:
+                quy_dinh_text = "Chưa có văn bản quy định liên quan trong thư mục Tai_lieu."
+
+            prompt_dk = ChatPromptTemplate.from_template(TEMPLATE_DIEU_KIEN_TRUOC_HAN)
+            chain_dk = prompt_dk | llm | StrOutputParser()
+            answer = chain_dk.invoke({
+                "ho_so_luong": dinh_dang_ho_so(doi_tuong),
+                "khen_thuong": khen_thuong_text,
+                "dien_bien_luong": dien_bien_text,
+                "quy_dinh": quy_dinh_text,
+                "question": user_query,
+            })
+            st.session_state["nguoi_hien_tai"] = ten_day_du
+            return answer, []
+
+        # NHÁNH 1: tra tên trực tiếp
         if not ho_so.empty and len(user_query.split()) <= 6:
             if len(ho_so) == 1:
+                st.session_state["nguoi_hien_tai"] = ho_so.iloc[0].get('ho_ten', '')
                 answer = dinh_dang_ho_so(ho_so.iloc[0])
             else:
                 # Nhiều người trùng/gần giống tên -> gợi ý để người dùng chọn đúng, không dump hết
