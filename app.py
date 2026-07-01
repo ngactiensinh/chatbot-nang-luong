@@ -393,6 +393,9 @@ else:
 
     if vectorstore is not None:
         retriever = vectorstore.as_retriever(search_kwargs={"k": 15})
+        # Retriever riêng cho việc đánh giá điều kiện nâng lương trước hạn: lấy nhiều đoạn hơn (k cao hơn)
+        # vì câu hỏi càng cụ thể (kèm loại khen thưởng thực tế) thì cần quét rộng hơn để không bỏ sót điều khoản.
+        retriever_dieu_kien = vectorstore.as_retriever(search_kwargs={"k": 25})
 
         template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
         Hãy chỉ sử dụng các quy định trong tài liệu được cung cấp dưới đây để trả lời câu hỏi về QUY TRÌNH, QUY ĐỊNH nâng lương.
@@ -421,6 +424,7 @@ else:
         )
     else:
         retriever = None
+        retriever_dieu_kien = None
         rag_chain = None
 
     # --- 5. KHUNG CHAT TƯƠNG TÁC ---
@@ -474,9 +478,16 @@ else:
             ) or "Không có dữ liệu diễn biến lương chi tiết trong hệ thống Hồ sơ CBCC."
 
             quy_dinh_text = ""
-            if retriever is not None:
+            if retriever_dieu_kien is not None:
                 try:
-                    docs_lq = retriever.invoke(user_query)
+                    # Đưa cả thành tích khen thưởng thực tế vào câu tìm kiếm, để trúng đúng điều khoản
+                    # liệt kê các loại bằng khen/danh hiệu cụ thể trong quy định (thay vì chỉ dựa vào câu hỏi chung chung).
+                    truy_van_tim_kiem = (
+                        f"{user_query}\n"
+                        f"Thành tích khen thưởng thực tế của cán bộ:\n{khen_thuong_text}\n"
+                        f"Điều kiện, tiêu chuẩn, hình thức khen thưởng, danh hiệu thi đua để được xét nâng bậc lương trước thời hạn"
+                    )
+                    docs_lq = retriever_dieu_kien.invoke(truy_van_tim_kiem)
                     quy_dinh_text = "\n\n".join(d.page_content for d in docs_lq)
                 except Exception:
                     quy_dinh_text = ""
