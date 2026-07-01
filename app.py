@@ -336,12 +336,61 @@ else:
     # --- 5. KHUNG CHAT TƯƠNG TÁC ---
     if "messages" not in st.session_state:
         st.session_state.messages = []
+    if "goi_y_ten" not in st.session_state:
+        st.session_state.goi_y_ten = []   # danh sách tên đang gợi ý để bấm nhanh
+    if "cau_hoi_cho_xu_ly" not in st.session_state:
+        st.session_state.cau_hoi_cho_xu_ly = None
 
+    def xu_ly_cau_hoi(user_query):
+        """Xử lý 1 câu hỏi: tra tên trực tiếp từ Supabase, nếu không thì hỏi RAG."""
+        # BƯỚC 1: Thử tra cứu trực tiếp theo tên trong dữ liệu Supabase (chính xác, luôn mới nhất)
+        ho_so = tim_ho_so_theo_ten(df_luong, user_query)
+        goi_y_moi = []
+
+        if not ho_so.empty and len(user_query.split()) <= 6:
+            if len(ho_so) == 1:
+                answer = dinh_dang_ho_so(ho_so.iloc[0])
+            else:
+                # Nhiều người trùng/gần giống tên -> gợi ý để người dùng chọn đúng, không dump hết
+                goi_y = "\n".join(
+                    f"- **{r.get('ho_ten','')}** ({r.get('chuc_vu','') or 'chưa rõ chức vụ'})"
+                    for _, r in ho_so.iterrows()
+                )
+                answer = (
+                    f"Tìm thấy {len(ho_so)} người có tên gần giống '{user_query}'. "
+                    f"Bạn có phải muốn tìm (bấm vào tên bên dưới để xem ngay):\n\n{goi_y}"
+                )
+                goi_y_moi = ho_so['ho_ten'].astype(str).tolist()
+        elif rag_chain is not None:
+            answer = rag_chain.invoke(user_query)
+        else:
+            answer = "Tôi chưa tìm thấy thông tin này. Vui lòng thử nhập chính xác họ tên hoặc liên hệ quản trị viên."
+
+        return answer, goi_y_moi
+
+    # Hiển thị lịch sử chat
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if user_query := st.chat_input("Nhập tên đồng chí hoặc câu hỏi về chế độ nâng lương tại đây..."):
+    # Nút bấm nhanh cho các tên đang được gợi ý (chỉ hiện sau câu trả lời gợi ý gần nhất)
+    if st.session_state.goi_y_ten:
+        st.markdown("**👉 Chọn nhanh:**")
+        so_cot = min(3, len(st.session_state.goi_y_ten))
+        cols = st.columns(so_cot)
+        for i, ten in enumerate(st.session_state.goi_y_ten):
+            if cols[i % so_cot].button(ten, key=f"goiy_btn_{i}_{ten}", use_container_width=True):
+                st.session_state.cau_hoi_cho_xu_ly = ten
+                st.session_state.goi_y_ten = []
+                st.rerun()
+
+    # Ô nhập chat bình thường
+    user_query_go = st.chat_input("Nhập tên đồng chí hoặc câu hỏi về chế độ nâng lương tại đây...")
+
+    # Ưu tiên xử lý câu hỏi từ nút bấm (nếu có), sau đó mới đến ô gõ tay
+    user_query = st.session_state.pop("cau_hoi_cho_xu_ly", None) or user_query_go
+
+    if user_query:
         st.session_state.messages.append({"role": "user", "content": user_query})
         with st.chat_message("user"):
             st.markdown(user_query)
@@ -350,31 +399,11 @@ else:
             message_placeholder = st.empty()
             message_placeholder.markdown("⏳ Chuyên viên AI đang tra cứu hồ sơ...")
             try:
-                # BƯỚC 1: Thử tra cứu trực tiếp theo tên trong dữ liệu Supabase (chính xác, luôn mới nhất)
-                ho_so = tim_ho_so_theo_ten(df_luong, user_query)
-
-                if not ho_so.empty and len(user_query.split()) <= 6:
-                    # Câu hỏi ngắn, trùng tên -> trả lời trực tiếp từ dữ liệu thật, không qua RAG
-                    if len(ho_so) == 1:
-                        answer = dinh_dang_ho_so(ho_so.iloc[0])
-                    else:
-                        # Nhiều người trùng/gần giống tên -> gợi ý để người dùng chọn đúng, không dump hết
-                        goi_y = "\n".join(
-                            f"- **{r.get('ho_ten','')}** ({r.get('chuc_vu','') or 'chưa rõ chức vụ'})"
-                            for _, r in ho_so.iterrows()
-                        )
-                        answer = (
-                            f"Tìm thấy {len(ho_so)} người có tên gần giống '{user_query}'. "
-                            f"Bạn có phải muốn tìm:\n\n{goi_y}\n\n"
-                            f"👉 Vui lòng nhập chính xác họ và tên đầy đủ để xem thông tin chi tiết."
-                        )
-                elif rag_chain is not None:
-                    # BƯỚC 2: Câu hỏi về quy định/quy trình -> dùng RAG như cũ
-                    answer = rag_chain.invoke(user_query)
-                else:
-                    answer = "Tôi chưa tìm thấy thông tin này. Vui lòng thử nhập chính xác họ tên hoặc liên hệ quản trị viên."
-
+                answer, goi_y_moi = xu_ly_cau_hoi(user_query)
                 message_placeholder.markdown(answer)
                 st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.session_state.goi_y_ten = goi_y_moi
+                if goi_y_moi:
+                    st.rerun()   # rerun để hiện ngay các nút chọn nhanh bên dưới
             except Exception as e:
                 message_placeholder.markdown(f"❌ Có lỗi kết nối trong quá trình xử lý: {e}")
