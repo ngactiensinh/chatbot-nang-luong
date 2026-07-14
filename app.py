@@ -255,7 +255,7 @@ def la_cau_hoi_dieu_kien_truoc_han(query):
 
 TU_KHOA_KHEN_THUONG = [
     "khen thuong", "thanh tich", "danh hieu", "ky luat",
-    "chien si thi dua", "lao dong tien tien", "bang khen", "giay khen",
+    "chien si", "lao dong tien tien", "bang khen", "giay khen",
     "thi dua",
 ]
 
@@ -263,6 +263,22 @@ def la_cau_hoi_khen_thuong(query):
     """Nhận diện câu hỏi chung về khen thưởng/kỷ luật/thành tích thi đua (không nhất thiết hỏi về 'trước hạn')."""
     q = bo_dau(query)
     return any(tk in q for tk in TU_KHOA_KHEN_THUONG)
+
+
+def tim_nguoi_trong_cau(df, query):
+    """Nhận diện tên người được NHẮC ĐẾN trong một câu dài (vd 'Đồng chí Tuấn có đạt...'),
+    khác với tim_ho_so_theo_ten vốn chỉ hoạt động tốt khi người dùng gõ ĐÚNG tên.
+    Cách làm: so khớp TỪ CUỐI trong tên mỗi cán bộ (thường là tên gọi hàng ngày, vd 'Tuấn')
+    với các từ xuất hiện trong câu hỏi."""
+    if df.empty:
+        return pd.DataFrame()
+    q_bd = bo_dau(query)
+    q_words = set(q_bd.split())
+    df = df.copy()
+    df['_ten_bo_dau'] = df['ho_ten'].astype(str).apply(bo_dau)
+    df['_ten_cuoi'] = df['_ten_bo_dau'].apply(lambda s: s.split()[-1] if s else '')
+    match = df[(df['_ten_cuoi'] != '') & (df['_ten_cuoi'].isin(q_words))]
+    return match.drop(columns=['_ten_bo_dau', '_ten_cuoi'], errors='ignore')
 
 
 def dinh_dang_khen_thuong(ten_day_du, khen_thuong_text, dien_bien_text):
@@ -476,10 +492,15 @@ else:
             doi_tuong = None
             if not ho_so.empty and len(ho_so) == 1:
                 doi_tuong = ho_so.iloc[0]
-            elif st.session_state.get("nguoi_hien_tai"):
-                ho_so_truoc = tim_ho_so_theo_ten(df_luong, st.session_state["nguoi_hien_tai"])
-                if len(ho_so_truoc) == 1:
-                    doi_tuong = ho_so_truoc.iloc[0]
+            else:
+                # Câu dài kiểu 'Đồng chí Tuấn có đạt...' -> thử nhận diện tên nằm trong câu
+                ho_so_trong_cau = tim_nguoi_trong_cau(df_luong, user_query)
+                if len(ho_so_trong_cau) == 1:
+                    doi_tuong = ho_so_trong_cau.iloc[0]
+                elif st.session_state.get("nguoi_hien_tai"):
+                    ho_so_truoc = tim_ho_so_theo_ten(df_luong, st.session_state["nguoi_hien_tai"])
+                    if len(ho_so_truoc) == 1:
+                        doi_tuong = ho_so_truoc.iloc[0]
 
             if doi_tuong is None:
                 answer = (
