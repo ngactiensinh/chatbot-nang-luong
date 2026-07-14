@@ -256,29 +256,35 @@ def la_cau_hoi_dieu_kien_truoc_han(query):
 TU_KHOA_KHEN_THUONG = [
     "khen thuong", "thanh tich", "danh hieu", "ky luat",
     "chien si", "lao dong tien tien", "bang khen", "giay khen",
-    "thi dua",
+    "thi dua", "dien bien luong", "qua trinh nang luong",
+    "lich su nang luong", "lich su luong",
 ]
 
 def la_cau_hoi_khen_thuong(query):
-    """Nhận diện câu hỏi chung về khen thưởng/kỷ luật/thành tích thi đua (không nhất thiết hỏi về 'trước hạn')."""
+    """Nhận diện câu hỏi chung về khen thưởng/kỷ luật/thành tích thi đua/diễn biến lương (không nhất thiết hỏi về 'trước hạn')."""
     q = bo_dau(query)
     return any(tk in q for tk in TU_KHOA_KHEN_THUONG)
 
 
 def tim_nguoi_trong_cau(df, query):
-    """Nhận diện tên người được NHẮC ĐẾN trong một câu dài (vd 'Đồng chí Tuấn có đạt...'),
-    khác với tim_ho_so_theo_ten vốn chỉ hoạt động tốt khi người dùng gõ ĐÚNG tên.
-    Cách làm: so khớp TỪ CUỐI trong tên mỗi cán bộ (thường là tên gọi hàng ngày, vd 'Tuấn')
-    với các từ xuất hiện trong câu hỏi."""
+    """Nhận diện tên người được NHẮC ĐẾN trong một câu dài (vd 'Diễn biến lương của đồng chí Ngạc Văn Tuấn'
+    hoặc 'Đồng chí Tuấn có đạt...'), khác với tim_ho_so_theo_ten vốn chỉ hoạt động tốt khi người dùng gõ ĐÚNG tên.
+    Ưu tiên 1: cụm tên ĐẦY ĐỦ của cán bộ xuất hiện nguyên vẹn trong câu hỏi.
+    Ưu tiên 2 (dự phòng): TỪ CUỐI trong tên (thường là tên gọi hàng ngày, vd 'Tuấn') xuất hiện như 1 từ riêng trong câu."""
     if df.empty:
         return pd.DataFrame()
     q_bd = bo_dau(query)
-    q_words = set(q_bd.split())
     df = df.copy()
     df['_ten_bo_dau'] = df['ho_ten'].astype(str).apply(bo_dau)
+
+    match = df[(df['_ten_bo_dau'] != '') & df['_ten_bo_dau'].apply(lambda n: n in q_bd)]
+    if len(match) == 1:
+        return match.drop(columns=['_ten_bo_dau'], errors='ignore')
+
+    q_words = set(q_bd.split())
     df['_ten_cuoi'] = df['_ten_bo_dau'].apply(lambda s: s.split()[-1] if s else '')
-    match = df[(df['_ten_cuoi'] != '') & (df['_ten_cuoi'].isin(q_words))]
-    return match.drop(columns=['_ten_bo_dau', '_ten_cuoi'], errors='ignore')
+    match2 = df[(df['_ten_cuoi'] != '') & (df['_ten_cuoi'].isin(q_words))]
+    return match2.drop(columns=['_ten_bo_dau', '_ten_cuoi'], errors='ignore')
 
 
 def dinh_dang_khen_thuong(ten_day_du, khen_thuong_text, dien_bien_text):
