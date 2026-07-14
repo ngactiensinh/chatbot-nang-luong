@@ -253,6 +253,31 @@ def la_cau_hoi_dieu_kien_truoc_han(query):
     return any(tk in q for tk in TU_KHOA_TRUOC_HAN)
 
 
+TU_KHOA_KHEN_THUONG = [
+    "khen thuong", "thanh tich", "danh hieu", "ky luat",
+    "chien si thi dua", "lao dong tien tien", "bang khen", "giay khen",
+    "thi dua",
+]
+
+def la_cau_hoi_khen_thuong(query):
+    """Nhận diện câu hỏi chung về khen thưởng/kỷ luật/thành tích thi đua (không nhất thiết hỏi về 'trước hạn')."""
+    q = bo_dau(query)
+    return any(tk in q for tk in TU_KHOA_KHEN_THUONG)
+
+
+def dinh_dang_khen_thuong(ten_day_du, khen_thuong_text, dien_bien_text):
+    """Trình bày nhanh thành tích khen thưởng/kỷ luật + diễn biến lương của 1 cán bộ, không cần LLM đánh giá."""
+    return f"""**🏆 Khen thưởng / Kỷ luật — {ten_day_du}**
+
+{khen_thuong_text}
+
+**📈 Diễn biến lương chi tiết**
+
+{dien_bien_text}
+
+*(Dữ liệu lấy trực tiếp, tự động cập nhật từ hệ thống Quản lý Hồ sơ CBCC)*"""
+
+
 TEMPLATE_DIEU_KIEN_TRUOC_HAN = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
 Nhiệm vụ: đánh giá cán bộ có đủ điều kiện được xét nâng bậc lương trước thời hạn hay không, CHỈ dựa vào dữ liệu và quy định dưới đây. Không suy diễn hay bịa thêm điều kiện không có trong quy định.
 
@@ -445,8 +470,9 @@ else:
         ho_so = tim_ho_so_theo_ten(df_luong, user_query)
         goi_y_moi = []
 
-        # NHÁNH 0: câu hỏi về điều kiện nâng lương trước thời hạn
-        if la_cau_hoi_dieu_kien_truoc_han(user_query):
+        # NHÁNH 0: câu hỏi về điều kiện nâng lương trước thời hạn HOẶC về khen thưởng/kỷ luật nói chung
+        can_xu_ly_dac_biet = la_cau_hoi_dieu_kien_truoc_han(user_query) or la_cau_hoi_khen_thuong(user_query)
+        if can_xu_ly_dac_biet:
             doi_tuong = None
             if not ho_so.empty and len(ho_so) == 1:
                 doi_tuong = ho_so.iloc[0]
@@ -457,8 +483,8 @@ else:
 
             if doi_tuong is None:
                 answer = (
-                    "Để đánh giá điều kiện nâng lương trước thời hạn, vui lòng cho tôi biết "
-                    "họ và tên đầy đủ của đồng chí cần tra cứu trước nhé."
+                    "Để tra cứu thông tin khen thưởng/kỷ luật hoặc đánh giá điều kiện nâng lương trước thời hạn, "
+                    "vui lòng cho tôi biết họ và tên đầy đủ của đồng chí cần tra cứu trước nhé."
                 )
                 return answer, []
 
@@ -476,6 +502,14 @@ else:
                 f"- {r.get('ngay_quyet_dinh','')}: Bậc {r.get('bac_luong','')}, hệ số {r.get('he_so','')} (QĐ số {r.get('quyet_dinh_so','')})"
                 for _, r in dbl.iterrows()
             ) or "Không có dữ liệu diễn biến lương chi tiết trong hệ thống Hồ sơ CBCC."
+
+            st.session_state["nguoi_hien_tai"] = ten_day_du
+
+            # Chỉ khi CÓ hỏi cụ thể về "trước thời hạn / đủ điều kiện" mới chạy phân tích đầy đủ với LLM + quy định.
+            # Câu hỏi khen thưởng/kỷ luật chung chung -> trả lời nhanh trực tiếp từ dữ liệu, không cần LLM.
+            if not la_cau_hoi_dieu_kien_truoc_han(user_query):
+                answer = dinh_dang_khen_thuong(ten_day_du, khen_thuong_text, dien_bien_text)
+                return answer, []
 
             quy_dinh_text = ""
             if retriever_dieu_kien is not None:
@@ -503,7 +537,6 @@ else:
                 "quy_dinh": quy_dinh_text,
                 "question": user_query,
             })
-            st.session_state["nguoi_hien_tai"] = ten_day_du
             return answer, []
 
         # NHÁNH 1: tra tên trực tiếp
@@ -546,7 +579,7 @@ else:
                 st.rerun()
 
     # Ô nhập chat bình thường
-    user_query_go = st.chat_input("Nhập tên đồng chí hoặc câu hỏi về chế độ nâng lương tại đây...")
+    user_query_go = st.chat_input("Nhập tên, hỏi về lương, khen thưởng/kỷ luật, hoặc điều kiện nâng lương trước hạn...")
 
     # Ưu tiên xử lý câu hỏi từ nút bấm (nếu có), sau đó mới đến ô gõ tay
     user_query = st.session_state.pop("cau_hoi_cho_xu_ly", None) or user_query_go
