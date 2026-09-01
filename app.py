@@ -300,7 +300,7 @@ def dinh_dang_khen_thuong(ten_day_du, khen_thuong_text, dien_bien_text):
 *(Dữ liệu lấy trực tiếp, tự động cập nhật từ hệ thống Quản lý Hồ sơ CBCC)*"""
 
 
-TEMPLATE_DIEU_KIEN_TRUOC_HAN = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
+TEMPLATE_DIEU_KIEN_TRUOC_HAN = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo Tỉnh ủy Tuyên Quang.
 Nhiệm vụ: đánh giá cán bộ có đủ điều kiện được xét nâng bậc lương trước thời hạn hay không, CHỈ dựa vào dữ liệu và quy định dưới đây. Không suy diễn hay bịa thêm điều kiện không có trong quy định.
 
 1. THÔNG TIN LƯƠNG HIỆN TẠI CỦA CÁN BỘ:
@@ -381,7 +381,7 @@ with col1:
 
 with col2:
     st.markdown('<div class="main-title">TRỢ LÝ AI - GIẢI ĐÁP CHẾ ĐỘ NÂNG LƯƠNG</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">BAN TUYÊN GIÁO VÀ DÂN VẬN TỈNH ỦY TUYÊN QUANG</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">BAN TUYÊN GIÁO TỈNH ỦY TUYÊN QUANG</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
@@ -444,7 +444,7 @@ else:
         # vì câu hỏi càng cụ thể (kèm loại khen thưởng thực tế) thì cần quét rộng hơn để không bỏ sót điều khoản.
         retriever_dieu_kien = vectorstore.as_retriever(search_kwargs={"k": 25})
 
-        template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo và Dân vận Tỉnh ủy Tuyên Quang.
+        template = """Bạn là chuyên gia tổ chức cán bộ của Ban Tuyên giáo Tỉnh ủy Tuyên Quang.
         Hãy chỉ sử dụng các quy định trong tài liệu được cung cấp dưới đây để trả lời câu hỏi về QUY TRÌNH, QUY ĐỊNH nâng lương.
 
         LƯU Ý:
