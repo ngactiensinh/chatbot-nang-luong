@@ -607,7 +607,7 @@ def xu_ly_cau_hoi(q, vectorstore):
         ca_nhan = bool(TU_BAN_THAN.search(thuong(q))) or giong_ho_ten(q) or (loai in ("truoc_han", "khen_thuong") and not hoi_chung)
         if ca_nhan:
             return ("Để tra cứu lương, khen thưởng, kỷ luật hay thời điểm nghỉ hưu của một đồng chí cụ thể, "
-                    "đồng chí vui lòng **đăng nhập** ở thanh bên trái bằng mã cán bộ và mật khẩu của app Hồ sơ CBCC."), []
+                    "đồng chí vui lòng **đăng nhập** (nút Đăng nhập ở đầu trang) bằng mã cán bộ và mật khẩu của app Hồ sơ CBCC."), []
         return tra_loi_quy_dinh(q, vectorstore), []
 
     ds = nap_du_lieu()
@@ -679,30 +679,6 @@ ghi_truy_cap()
 for k, v in (("messages", []), ("goi_y_ten", []), ("cau_hoi_cho_xu_ly", None)):
     st.session_state.setdefault(k, v)
 
-# Thanh bên: đăng nhập / đăng xuất
-with st.sidebar:
-    st.markdown("### 🔐 Tra cứu cá nhân")
-    if not da_dang_nhap():
-        st.caption("Đăng nhập bằng mã cán bộ và mật khẩu của app Hồ sơ CBCC để tra cứu lương, khen thưởng, nghỉ hưu.")
-        with st.form("dang_nhap", clear_on_submit=False):
-            ma = st.text_input("Mã cán bộ", placeholder="Ví dụ: CV12")
-            mk = st.text_input("Mật khẩu", type="password")
-            if st.form_submit_button("Đăng nhập", use_container_width=True, type="primary"):
-                with st.spinner("Đang đăng nhập..."):
-                    loi = dang_nhap(ma, mk)
-                if loi:
-                    st.error(loi)
-                else:
-                    st.rerun()
-        st.caption(f"Quên mật khẩu: liên hệ Văn phòng Ban. [Mở app Hồ sơ CBCC]({APP_HOSO_URL})")
-    else:
-        tk = st.session_state["tk"]
-        st.success(f"**{tk['ho_ten']}**  \nMã {tk['ma_cbcc']} · {'quản trị viên' if st.session_state['admin'] else 'cán bộ'}")
-        if st.button("Đăng xuất", use_container_width=True):
-            dang_xuat()
-            st.rerun()
-        st.caption("Đăng xuất sẽ xóa lịch sử trò chuyện trên máy này.")
-
 col1, col2 = st.columns([1, 8])
 with col1:
     try:
@@ -714,13 +690,36 @@ with col2:
     st.markdown('<div class="sub-title">Ban Tuyên giáo Tỉnh ủy Tuyên Quang</div>', unsafe_allow_html=True)
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
+# Đăng nhập / đăng xuất ngay trên màn hình chính (thanh bên khó thấy trên điện thoại)
+if not da_dang_nhap():
+    with st.expander("🔐 Đăng nhập để tra cứu lương, khen thưởng, nghỉ hưu của mình"):
+        st.caption("Dùng mã cán bộ và mật khẩu của app Hồ sơ CBCC.")
+        with st.form("dang_nhap", clear_on_submit=False):
+            ma = st.text_input("Mã cán bộ", placeholder="Ví dụ: CV12")
+            mk = st.text_input("Mật khẩu", type="password")
+            if st.form_submit_button("Đăng nhập", use_container_width=True, type="primary"):
+                with st.spinner("Đang đăng nhập..."):
+                    loi = dang_nhap(ma, mk)
+                if loi:
+                    st.error(loi)
+                else:
+                    st.rerun()
+        st.caption(f"Quên mật khẩu: liên hệ Văn phòng Ban. [Mở app Hồ sơ CBCC]({APP_HOSO_URL})")
+else:
+    tk = st.session_state["tk"]
+    c1, c2 = st.columns([3, 1], vertical_alignment="center")
+    c1.markdown(f"👤 **{tk['ho_ten']}** · Mã {tk['ma_cbcc']} · {'quản trị viên' if st.session_state['admin'] else 'cán bộ'}")
+    if c2.button("Đăng xuất", use_container_width=True, help="Đăng xuất sẽ xóa lịch sử trò chuyện trên máy này."):
+        dang_xuat()
+        st.rerun()
+
 if da_dang_nhap():
     if st.session_state["admin"]:
         st.markdown('<div class="trang-thai">Quản trị viên: tra cứu được mọi cán bộ. Ví dụ: <i>Nguyễn Thu Vân</i>, <i>Ai sắp nâng lương?</i>, <i>Đồng chí Tuấn có đủ điều kiện nâng lương trước thời hạn không?</i></div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="trang-thai">Ví dụ: <i>Lương của tôi bao giờ được nâng?</i>, <i>Khen thưởng của tôi</i>, <i>Khi nào tôi nghỉ hưu?</i>, <i>Tôi có đủ điều kiện nâng lương trước thời hạn không?</i></div>', unsafe_allow_html=True)
 else:
-    st.markdown('<div class="trang-thai">Chưa đăng nhập: hỏi được các quy định chung về nâng lương. Muốn tra cứu thông tin cá nhân, đăng nhập ở thanh bên trái (trên điện thoại bấm biểu tượng » ở góc trên).</div>', unsafe_allow_html=True)
+    st.markdown('<div class="trang-thai">Chưa đăng nhập: hỏi được các quy định chung về nâng lương. Muốn tra cứu thông tin cá nhân, bấm <b>Đăng nhập</b> ở trên.</div>', unsafe_allow_html=True)
 
 with st.spinner("Đang đồng bộ cơ sở dữ liệu quy định..."):
     try:
